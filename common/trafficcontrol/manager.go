@@ -2,6 +2,7 @@ package trafficcontrol
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/sagernet/sing-box/adapter"
@@ -37,6 +38,10 @@ var (
 type Manager struct {
 	outbound adapter.OutboundManager
 
+	// v2node 扩展：per-user 流量累计（连接关闭时结算，供 /users/traffic 端点）
+	userUpload   sync.Map // user -> *atomic.Int64
+	userDownload sync.Map // user -> *atomic.Int64
+
 	connections             compatible.Map[uuid.UUID, Tracker]
 	closedConnectionsAccess sync.Mutex
 	closedConnections       list.List[TrackerMetadata]
@@ -46,6 +51,13 @@ type Manager struct {
 	eventSubscriber *observable.Subscriber[ConnectionEvent]
 	eventObserver   *observable.Observer[ConnectionEvent]
 	cleaner         *cleanup.Cleaner
+}
+
+// UserTrafficItem v2node 扩展：单个用户的流量累计。
+type UserTrafficItem struct {
+	User string `json:"user"`
+	Up   int64  `json:"up"`
+	Down int64  `json:"down"`
 }
 
 func NewManager(outbound adapter.OutboundManager) *Manager {
@@ -104,6 +116,13 @@ func (m *Manager) leave(tracker Tracker) {
 		m.closedConnectionsAccess.Unlock()
 		return
 	}
+	// v2node 扩展：连接关闭时把最终流量结算到 per-user 累计。
+	if metadata.Metadata.User != "" {
+		up, _ := m.userUpload.LoadOrStore(metadata.Metadata.User, new(atomic.Int64))
+		up.(*atomic.Int64).Add(metadata.Upload.Load())
+		down, _ := m.userDownload.LoadOrStore(metadata.Metadata.User, new(atomic.Int64))
+		down.(*atomic.Int64).Add(metadata.Download.Load())
+	}
 	metadata.ClosedAt = closedAt
 	metadataCopy := *metadata
 	if m.closedConnections.Len() >= closedConnectionsLimit {
@@ -137,6 +156,44 @@ func (m *Manager) Total() (uplinkTotal int64, downlinkTotal int64) {
 		return true
 	})
 	return
+}
+
+// UserTraffic v2node 扩展：per-user 流量累计（已关闭连接的结算值 + 活跃连接的实时值）。
+// 返回值为单调递增的进程内累计，v2node 采集侧做差量即可。
+func (m *Manager) UserTraffic() []UserTrafficItem {
+	totals := make(map[string]*UserTrafficItem)
+	get := func(user string) *UserTrafficItem {
+		item, ok := totals[user]
+		if !ok {
+			item = &UserTrafficItem{User: user}
+			totals[user] = item
+		}
+		return item
+	}
+	m.userUpload.Range(func(key, value any) bool {
+		get(key.(string)).Up += value.(*atomic.Int64).Load()
+		return true
+	})
+	m.userDownload.Range(func(key, value any) bool {
+		get(key.(string)).Down += value.(*atomic.Int64).Load()
+		return true
+	})
+	// 活跃连接：临时并入实时值（不写入累计，避免连接关闭时重复结算）。
+	m.connections.Range(func(_ uuid.UUID, tracker Tracker) bool {
+		metadata := tracker.Metadata()
+		if metadata.Metadata.User == "" {
+			return true
+		}
+		item := get(metadata.Metadata.User)
+		item.Up += metadata.Upload.Load()
+		item.Down += metadata.Download.Load()
+		return true
+	})
+	items := make([]UserTrafficItem, 0, len(totals))
+	for _, item := range totals {
+		items = append(items, *item)
+	}
+	return items
 }
 
 func (m *Manager) ConnectionsLen() int {

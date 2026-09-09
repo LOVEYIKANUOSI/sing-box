@@ -115,6 +115,7 @@ func NewServer(ctx context.Context, logFactory log.ObservableFactory, options op
 		r.Get("/", hello(options.ExternalUI != ""))
 		r.Get("/logs", getLogs(s.ctx, logFactory))
 		r.Get("/traffic", traffic(s.ctx, trafficManager))
+		r.Get("/users/traffic", usersTraffic(trafficManager))
 		r.Get("/version", version)
 		r.Mount("/configs", configRouter(s, logFactory))
 		r.Mount("/proxies", proxyRouter(s, s.router))
@@ -286,6 +287,13 @@ func traffic(ctx context.Context, trafficManager *trafficcontrol.Manager) func(w
 			uploadTotal = uploadTotalNew
 			downloadTotal = downloadTotalNew
 		}
+	}
+}
+
+// usersTraffic v2node 扩展：一次性返回 per-user 流量累计（已关闭连接结算 + 活跃连接实时值）。
+func usersTraffic(trafficManager *trafficcontrol.Manager) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		render.JSON(w, r, trafficManager.UserTraffic())
 	}
 }
 

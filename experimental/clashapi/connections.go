@@ -94,6 +94,7 @@ func (c connectionObject) MarshalJSON() ([]byte, error) {
 			"host":            domain,
 			"dnsMode":         "normal",
 			"processPath":     processPath,
+			"user":            c.Metadata.User,
 		},
 		"upload":      c.Upload.Load(),
 		"download":    c.Download.Load(),
