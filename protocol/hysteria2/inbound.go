@@ -197,6 +197,8 @@ func NewInbound(ctx context.Context, router adapter.Router, logger log.ContextLo
 			DisablePathMTUDiscovery: options.DisablePathMTUDiscovery,
 		},
 		IgnoreClientBandwidth: options.IgnoreClientBandwidth,
+		AmplifyRatio:          options.AmplifyRatio,
+		AmplifyBurst:          options.AmplifyBurst,
 		UDPTimeout:            udpTimeout,
 		Handler:               inbound,
 		MasqueradeHandler:     masqueradeHandler,

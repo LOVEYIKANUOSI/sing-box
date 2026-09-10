@@ -19,6 +19,8 @@ type Hysteria2InboundOptions struct {
 	Obfs                  *Hysteria2Obfs  `json:"obfs,omitempty"`
 	Users                 []Hysteria2User `json:"users,omitempty"`
 	IgnoreClientBandwidth bool            `json:"ignore_client_bandwidth,omitempty"`
+	AmplifyRatio          float64         `json:"amplify_ratio,omitempty"`
+	AmplifyBurst          int64           `json:"amplify_burst,omitempty"`
 	InboundTLSOptionsContainer
 	QUICOptions
 	Masquerade  *Hysteria2Masquerade   `json:"masquerade,omitempty"`
