@@ -6,6 +6,8 @@ type TUICInboundOptions struct {
 	ListenOptions
 	Users             []TUICUser         `json:"users,omitempty"`
 	CongestionControl string             `json:"congestion_control,omitempty" enum:"cubic,new_reno,bbr"`
+	AmplifyRatio      float64            `json:"amplify_ratio,omitempty"`
+	AmplifyBurst      int64              `json:"amplify_burst,omitempty"`
 	AuthTimeout       badoption.Duration `json:"auth_timeout,omitempty"`
 	ZeroRTTHandshake  bool               `json:"zero_rtt_handshake,omitempty"`
 	Heartbeat         badoption.Duration `json:"heartbeat,omitempty"`

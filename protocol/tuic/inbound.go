@@ -78,6 +78,8 @@ func NewInbound(ctx context.Context, router adapter.Router, logger log.ContextLo
 			DisablePathMTUDiscovery: options.DisablePathMTUDiscovery,
 		},
 		CongestionControl: options.CongestionControl,
+		AmplifyRatio:      options.AmplifyRatio,
+		AmplifyBurst:      options.AmplifyBurst,
 		AuthTimeout:       time.Duration(options.AuthTimeout),
 		ZeroRTTHandshake:  options.ZeroRTTHandshake,
 		Heartbeat:         time.Duration(options.Heartbeat),
